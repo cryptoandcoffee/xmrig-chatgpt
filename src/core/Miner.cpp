@@ -536,62 +536,51 @@ void xmrig::Miner::setEnabled(bool enabled)
 }
 
 
-void xmrig::Miner::setJob(const Job &job, bool donate)
+void xmrig::Miner::setJob(const Job& job, bool donate)
 {
-    for (IBackend *backend : d_ptr->backends) {
-        backend->prepare(job);
-    }
-
-#   ifdef XMRIG_ALGO_RANDOMX
-    if (job.algorithm().family() == Algorithm::RANDOM_X && !Rx::isReady(job)) {
-        if (d_ptr->algorithm != job.algorithm()) {
-            stop();
-        }
-        else {
-            Nonce::pause(true);
-            Nonce::touch();
-        }
-    }
-#   endif
-
-    d_ptr->algorithm = job.algorithm();
-
-    mutex.lock();
-
     const uint8_t index = donate ? 1 : 0;
+    const bool is_same_job = d_ptr->job.isEqualBlob(job);
 
-    d_ptr->reset = !(d_ptr->job.index() == 1 && index == 0 && d_ptr->userJobId == job.id());
-
-    // Don't reset nonce if pool sends the same hashing blob again, but with different difficulty (for example)
-    if (d_ptr->job.isEqualBlob(job)) {
-        d_ptr->reset = false;
+    if (!is_same_job || d_ptr->job.index() != index) {
+        // If the job is new, or the index has changed, reset the nonce
+        d_ptr->reset = !(d_ptr->job.index() == 1 && index == 0 && d_ptr->userJobId == job.id());
     }
 
-    d_ptr->job   = job;
+    d_ptr->job = job;
     d_ptr->job.setIndex(index);
 
     if (index == 0) {
         d_ptr->userJobId = job.id();
     }
 
-#   ifdef XMRIG_ALGO_RANDOMX
-    const bool ready = d_ptr->initRX();
-#   else
-    constexpr const bool ready = true;
-#   endif
+    const bool algorithm_changed = d_ptr->algorithm != job.algorithm();
 
-#   ifdef XMRIG_ALGO_GHOSTRIDER
+    if (algorithm_changed) {
+#ifdef XMRIG_ALGO_RANDOMX
+        if (job.algorithm().family() == Algorithm::RANDOM_X && !Rx::isReady(job)) {
+            // If the algorithm is RandomX and the dataset is not ready, stop the miner
+            stop();
+            Nonce::pause(true);
+            Nonce::touch();
+        }
+#endif
+        d_ptr->algorithm = job.algorithm();
+    }
+
+    // Initialize algorithms
+#ifdef XMRIG_ALGO_RANDOMX
+    const bool ready = d_ptr->initRX();
+#else
+    constexpr const bool ready = true;
+#endif
+
+#ifdef XMRIG_ALGO_GHOSTRIDER
     if (job.algorithm().family() == Algorithm::GHOSTRIDER) {
         d_ptr->initGhostRider();
     }
-#   endif
+#endif
 
-    mutex.unlock();
-
-    d_ptr->active = true;
-    d_ptr->m_taskbar.setActive(true);
-
-    if (ready) {
+    if (ready && (!is_same_job || algorithm_changed)) {
         d_ptr->handleJobChange();
     }
 }
