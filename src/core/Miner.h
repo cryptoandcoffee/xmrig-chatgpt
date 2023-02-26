@@ -19,9 +19,9 @@
 #ifndef XMRIG_MINER_H
 #define XMRIG_MINER_H
 
-#include <array>
 #include <memory>
 #include <unordered_map>
+#include <vector>
 
 #include "backend/common/interfaces/IRxListener.h"
 #include "base/api/interfaces/IApiListener.h"
@@ -69,10 +69,11 @@ protected:
 
 private:
     std::unique_ptr<MinerPrivate> m_private;
-    std::array<bool, static_cast<size_t>(Algorithm::COUNT)> m_algorithmEnabled;
-    std::unordered_map<const Algorithm*, bool> m_algorithmEnabledMap;
+    std::vector<bool> m_algorithmEnabled;
+    std::unordered_map<const Algorithm*, size_t> m_algorithmIndexMap;
 };
 
 }  // namespace xmrig
 
 #endif  // XMRIG_MINER_H
+
