@@ -19,9 +19,9 @@
 #ifndef XMRIG_MINER_H
 #define XMRIG_MINER_H
 
-
-#include <vector>
-
+#include <array>
+#include <memory>
+#include <unordered_map>
 
 #include "backend/common/interfaces/IRxListener.h"
 #include "base/api/interfaces/IApiListener.h"
@@ -30,53 +30,49 @@
 #include "base/kernel/interfaces/ITimerListener.h"
 #include "base/tools/Object.h"
 
-
 namespace xmrig {
-
 
 class Controller;
 class Job;
 class MinerPrivate;
 class IBackend;
 
-
-class Miner : public ITimerListener, public IBaseListener, public IApiListener, public IRxListener
-{
+class Miner : public ITimerListener, public IBaseListener, public IApiListener, public IRxListener {
 public:
     XMRIG_DISABLE_COPY_MOVE_DEFAULT(Miner)
 
-    Miner(Controller *controller);
+    Miner(Controller* controller);
     ~Miner() override;
 
     bool isEnabled() const;
-    bool isEnabled(const Algorithm &algorithm) const;
-    const Algorithms &algorithms() const;
-    const std::vector<IBackend *> &backends() const;
-    Job job() const;
+    bool isEnabled(const Algorithm& algorithm) const;
+    const Algorithms& algorithms() const;
+    const std::vector<IBackend*>& backends() const;
+    const Job& job() const;
     void execCommand(char command);
     void pause();
     void setEnabled(bool enabled);
-    void setJob(const Job &job, bool donate);
+    void setJob(const Job& job, bool donate);
     void stop();
 
 protected:
-    void onConfigChanged(Config *config, Config *previousConfig) override;
-    void onTimer(const Timer *timer) override;
+    void onConfigChanged(Config* config, Config* previousConfig) override;
+    void onTimer(const Timer* timer) override;
 
-#   ifdef XMRIG_FEATURE_API
-    void onRequest(IApiRequest &request) override;
-#   endif
+#ifdef XMRIG_FEATURE_API
+    void onRequest(IApiRequest& request) override;
+#endif
 
-#   ifdef XMRIG_ALGO_RANDOMX
+#ifdef XMRIG_ALGO_RANDOMX
     void onDatasetReady() override;
-#   endif
+#endif
 
 private:
-    MinerPrivate *d_ptr;
+    std::unique_ptr<MinerPrivate> m_private;
+    std::array<bool, static_cast<size_t>(Algorithm::COUNT)> m_algorithmEnabled;
+    std::unordered_map<const Algorithm*, bool> m_algorithmEnabledMap;
 };
 
+}  // namespace xmrig
 
-} // namespace xmrig
-
-
-#endif /* XMRIG_MINER_H */
+#endif  // XMRIG_MINER_H
